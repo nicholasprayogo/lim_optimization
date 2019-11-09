@@ -7,7 +7,7 @@ import numpy as np
 
 desiredSpeed = 60; # m/s
 acceleration_distance = 700; # m
-pod_mass = 100; # kg, w/ LIM, estimated
+# pod_mass = 200; # kg, w/ LIM, estimated
 # stator_tooth_height = 0.05; # m
 
 n_poles_choices = [1,2,3,4,5]
@@ -44,22 +44,27 @@ conductor_diameters = [0.00064262, 0.000724, 0.000813, 0.000912, 0.001024, 0.001
 wire_diameters = [0.00067564, 0.000757, 0.000851, 0.000947, 0.001062, 0.001191, 0.001331, 0.001491, 0.001674, 0.001872, 0.002096, 0.00235, 0.002634, 0.002951, 0.003307];
 stefanBoltzmann = 0.000000056703;
 
-# stator_tooth_height_choices = np.linspace(0.02,0.06,10)
+
+#
+stator_tooth_thickness_choices = np.linspace(0.005,0.02,10)
+stator_tooth_height_choices = np.linspace(0.06,0.08,5)
+# stator_yoke_height_choices = np.linspace(0.005,0.02,10)
+# airgap_choices = np.linspace(0.001,0.005,5)
+voltage_choices = np.linspace(100,110,10)
+
+# n_poles_choices = range(2,8,2)
+# n_long_turns_choices = range(10,21)
+
 # stator_tooth_height_choices = [0.06]
 # stator_tooth_thickness_choices = [0.00833]
-# stator_yoke_height_choices = [0.005]
-# airgap_choices = [0.005]
-# n_pole_choices =[5]
-# n_long_turns_choices = [20]
-# voltage_choices = [105.55]
-stator_tooth_thickness_choices = np.linspace(0.005,0.02,10)
-stator_yoke_height_choices = np.linspace(0.005,0.02,10)
-airgap_choices = np.linspace(0.005,0.02,10)
-voltage_choices = np.linspace(100,110,10)
-n_pole_choices = range(1,6)
-n_long_turns_choices = range(10,21)
-mass_weight = 0.0
-top_speed_weight = 1.0
+stator_yoke_height_choices = [0.001]
+airgap_choices = [0.001]
+n_poles_choices =[4,6,8]
+n_long_turns_choices = [10, 12, 14,16,18,20]
+voltage_choices = [105.55]
+
+mass_weight = 0.2
+top_speed_weight =  0.8
 
 # --------------------------- SOLVER ---------------------------
 
@@ -75,15 +80,13 @@ for stator_tooth_height in stator_tooth_height_choices:
             for airgap in airgap_choices:
                 for voltage in voltage_choices:
                     for wire_index, wire_diameter in enumerate(wire_diameters):
-                        stator_slot_pitch = (wire_diameter/packEff) + stator_tooth_thickness;
-                        init_stator_slot_pitch = stator_slot_pitch;
-
+                        # stator_slot_pitch = (wire_diameter/packEff) + stator_tooth_thickness;
+                        # init_stator_slot_pitch = stator_slot_pitch;
                         for n_long_turns in n_long_turns_choices:
-
+                            stator_slot_pitch = n_long_turns*(wire_diameter/packEff) + stator_tooth_thickness
                             for n_poles in n_poles_choices:
                                 conductor_cross_area = math.pi * (conductor_diameters[wire_index]/2)**2;
                                 n_vertical_turns = math.floor((stator_tooth_height/(wire_diameter/packEff))/3);
-
 
                                 if stator_tooth_height <((wire_diameter/packEff)*12):
                                     stator_tooth_height = ((wire_diameter/packEff)*12)
@@ -106,7 +109,6 @@ for stator_tooth_height in stator_tooth_height_choices:
                                     continue
                                 else:
                                     toothGap = stator_slot_pitch - stator_tooth_thickness;
-
                                     windingFactor = 1;
                                     magnetic_air_gap = airgap + secondary_thickness;
                                     gamma = (4/math.pi) * (((toothGap/(2*magnetic_air_gap)) * math.atan(toothGap/(2*magnetic_air_gap))) - math.log((1+ (toothGap/(2*magnetic_air_gap))**2)**0.5));
@@ -121,6 +123,7 @@ for stator_tooth_height in stator_tooth_height_choices:
                                     rSubTwo = Xm/goodness_factor;
                                     rotorPhaseCurrent = (voltage/opResistance)/((1+ (1/((slip*goodness_factor)**2)))**0.5);
                                     syncVelo = 2*fMax*tau;
+
                                     force = ((3*rotorPhaseCurrent**2*rSubTwo)/(syncVelo*slip)) * forceFactor;
 
                                     # calculation of objectives
@@ -129,6 +132,7 @@ for stator_tooth_height in stator_tooth_height_choices:
                                     mass += (stator_width * (stator_tooth_height + stator_yoke_height) * (stator_tooth_thickness + stator_slot_pitch * (5 + 3 * (n_poles - 1))) * stator_density); # add stator as giant block
                                     mass +- ((5 + 3 * (n_poles - 1)) * stator_density * stator_width * (stator_slot_pitch - stator_tooth_thickness) * stator_tooth_height); # subtract mass of slots
 
+                                    pod_mass = 60 + mass
                                     top_speed = math.sqrt(2*force*acceleration_distance/pod_mass)
 
                                     design_score_new = top_speed_weight*top_speed - mass_weight * mass
@@ -149,14 +153,17 @@ for stator_tooth_height in stator_tooth_height_choices:
                                             "turns_per_coil": n_turns_per_coil,
                                             "wire diameter": wire_diameter,
                                             "wire gauge": 22 - (wire_index),
-                                            "stator_slot_pitch": stator_slot_pitch,
-                                            "tooth_pitch":toothGap,
+                                            # "stator_slot_pitch": stator_slot_pitch,
+
+                                            "tooth_pitch":stator_slot_pitch,
                                             "force": force
                                             },
                                         "objectives":
                                             {
                                             "lim_mass": mass,
-                                            "speed":top_speed
+                                            "speed":top_speed,
+                                            "mass weight": mass_weight,
+                                            "speed weight": top_speed_weight
                                             }
                                         }
 
